@@ -17,6 +17,8 @@
 typedef struct _tEntity {
 	UWORD uwX;
 	UWORD uwY;
+	UWORD uwUndrawX;
+	UWORD uwUndrawY;
 	UBYTE ubDir;
 	UBYTE ubType;
 	UBYTE ubFrame;
