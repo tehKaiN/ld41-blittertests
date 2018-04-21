@@ -100,15 +100,33 @@ void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy) {
 void entityProcessDraw(tBitMap *pBuffer) {
 	// Let's imitate new Copper pipeline
 	UWORD uwOffs = 0;
+
+	// Restore BG on old pos
+	UWORD uwWidth = 32;
+	UWORD uwHeight = 20*4;
+	UWORD uwBlitWords, uwBltCon0;
+	uwBlitWords = uwWidth >> 4;
+	uwBltCon0 = USEA|USED | MINTERM_A;
+	WORD wDstModulo, wSrcModulo;
+	wSrcModulo = bitmapGetByteWidth(s_pBgBuffer) - (uwBlitWords<<1);
+	wDstModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
+	blitWait();
+	g_pCustom->bltcon0 = uwBltCon0;
+	g_pCustom->bltcon1 = 0;
+	g_pCustom->bltafwm = 0xFFFF;
+	g_pCustom->bltalwm = 0xFFFF;
+
+	g_pCustom->bltamod = wSrcModulo;
+	g_pCustom->bltdmod = wDstModulo;
+	g_pCustom->bltapt = (UBYTE*)((ULONG)s_pBgBuffer->Planes[0]);
+
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
-			// Restore BG on old pos
-			blitCopyAligned(
-				s_pBgBuffer, 0, uwOffs,
-				pBuffer, pEntity->uwUndrawX & 0xFFF0, pEntity->uwUndrawY,
-				32, 20
-			);
+			ULONG ulDstOffs = pBuffer->BytesPerRow * pEntity->uwUndrawY + (pEntity->uwUndrawX>>3);
+			blitWait();
+			g_pCustom->bltdpt = (UBYTE*)((ULONG)pBuffer->Planes[0] + ulDstOffs);
+			g_pCustom->bltsize = (uwHeight << 6) | uwBlitWords;
 			uwOffs += 20;
 		}
 	}
