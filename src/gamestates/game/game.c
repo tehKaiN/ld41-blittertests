@@ -48,10 +48,10 @@ void gameGsCreate(void) {
 	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
 
 	entityListCreate();
-	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
 	entityAdd(48, 64, ENTITY_DIR_DOWN);
 	entityAdd(80, 64, ENTITY_DIR_DOWN);
 	entityAdd(112, 64, ENTITY_DIR_DOWN);
+	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
 
 	viewLoad(s_pView);
 	systemUnuse();

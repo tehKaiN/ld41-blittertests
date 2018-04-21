@@ -16,6 +16,7 @@
 tEntity s_pEntities[ENTITY_MAX_COUNT] = {{0}};
 
 tBitMap *s_pDirFrames[4];
+tBitMap *s_pDirMasks[4];
 
 tBitMap *s_pBgBuffer;
 
@@ -24,6 +25,11 @@ void entityListCreate(void) {
 	s_pDirFrames[ENTITY_DIR_DOWN] = bitmapCreateFromFile("data/skelet/down.bm");
 	s_pDirFrames[ENTITY_DIR_LEFT] = bitmapCreateFromFile("data/skelet/left.bm");
 	s_pDirFrames[ENTITY_DIR_RIGHT] = bitmapCreateFromFile("data/skelet/right.bm");
+
+	s_pDirMasks[ENTITY_DIR_UP] = bitmapCreateFromFile("data/skelet/up_mask.bm");
+	s_pDirMasks[ENTITY_DIR_DOWN] = bitmapCreateFromFile("data/skelet/down_mask.bm");
+	s_pDirMasks[ENTITY_DIR_LEFT] = bitmapCreateFromFile("data/skelet/left_mask.bm");
+	s_pDirMasks[ENTITY_DIR_RIGHT] = bitmapCreateFromFile("data/skelet/right_mask.bm");
 
 	s_pBgBuffer = bitmapCreate(
 		bitmapGetByteWidth(s_pDirFrames[0])*8 +16, 20*ENTITY_MAX_COUNT,
@@ -40,6 +46,7 @@ void entityListDestroy(void) {
 
 	for(UBYTE i = ENTITY_DIR_UP; i <= ENTITY_DIR_RIGHT; ++i) {
 		bitmapDestroy(s_pDirFrames[i]);
+		bitmapDestroy(s_pDirMasks[i]);
 	}
 }
 
@@ -99,8 +106,6 @@ void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy) {
 
 void entityProcessDraw(tBitMap *pBuffer) {
 	// Let's imitate new Copper pipeline
-	UWORD uwOffs = 0;
-
 	// Restore BG on old pos
 	UWORD uwWidth = 32;
 	UWORD uwHeight = 20*4;
@@ -127,20 +132,23 @@ void entityProcessDraw(tBitMap *pBuffer) {
 			blitWait();
 			g_pCustom->bltdpt = (UBYTE*)((ULONG)pBuffer->Planes[0] + ulDstOffs);
 			g_pCustom->bltsize = (uwHeight << 6) | uwBlitWords;
-			uwOffs += 20;
 		}
 	}
 
-	uwOffs = 0;
+	// Save BG on new pos
+	wSrcModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
+	wDstModulo = bitmapGetByteWidth(s_pBgBuffer) - (uwBlitWords<<1);
+	blitWait();
+	g_pCustom->bltamod = wSrcModulo;
+	g_pCustom->bltdmod = wDstModulo;
+	g_pCustom->bltdpt = (UBYTE*)((ULONG)s_pBgBuffer->Planes[0]);
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
-			// Save BG on new pos
-			blitCopyAligned(
-				pBuffer, pEntity->uwX & 0xFFF0, pEntity->uwY,
-				s_pBgBuffer, 0, uwOffs, 32, 20
-			);
-			uwOffs += 20;
+			ULONG ulSrcOffs = pBuffer->BytesPerRow * pEntity->uwY + (pEntity->uwX>>3);
+			blitWait();
+			g_pCustom->bltapt = (UBYTE*)((ULONG)pBuffer->Planes[0] + ulSrcOffs);
+			g_pCustom->bltsize = (uwHeight << 6) | uwBlitWords;
 		}
 	}
 
@@ -148,10 +156,10 @@ void entityProcessDraw(tBitMap *pBuffer) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
 			// Draw entity on new pos
-			blitCopy(
+			blitCopyMask(
 				s_pDirFrames[pEntity->ubDir], 0, s_pEntities[ubIdx].ubFrame * 20,
 				pBuffer, pEntity->uwX, pEntity->uwY,
-				16, 20, MINTERM_COOKIE, 0xFF
+				16, 20, (UWORD*)s_pDirMasks[pEntity->ubDir]->Planes[0]
 			);
 		}
 	}
