@@ -5,15 +5,18 @@
 #include <ace/managers/system.h>
 #include <ace/managers/viewport/simplebuffer.h>
 #include <ace/utils/extview.h>
+#include <ace/utils/palette.h>
+#include "gamestates/game/entity.h"
 
 tView *s_pView;
 tVPort *s_pVPort;
 tSimpleBufferManager *s_pBuffer;
 
-#define GAME_BPP 1
+UBYTE s_ubEntityPlayer;
+
+#define GAME_BPP 4
 
 void gameGsCreate(void) {
-	const UWORD pPalette[] = {0, 0xFFF};
 	s_pView = viewCreate(0,
 		TAG_VIEW_COPLIST_MODE, VIEW_COPLIST_MODE_RAW,
 		TAG_VIEW_COPLIST_RAW_COUNT, 50,
@@ -22,8 +25,6 @@ void gameGsCreate(void) {
 
 	s_pVPort = vPortCreate(0,
 		TAG_VPORT_BPP, GAME_BPP,
-		TAG_VPORT_PALETTE_PTR, pPalette,
-		TAG_VPORT_PALETTE_SIZE, 2,
 		TAG_VPORT_VIEW, s_pView,
 	TAG_DONE);
 
@@ -35,10 +36,13 @@ void gameGsCreate(void) {
 		TAG_SIMPLEBUFFER_BOUND_HEIGHT, 512,
 	TAG_DONE);
 
+	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
+
+	entityListCreate();
+	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
 
 	viewLoad(s_pView);
 	systemUnuse();
-	blitRect(s_pBuffer->pBuffer, 16, 16, 32, 32, 1);
 }
 
 void gameGsLoop(void) {
@@ -46,10 +50,17 @@ void gameGsLoop(void) {
 		gameClose();
 		return;
 	}
+
+	entityProcessDraw(s_pBuffer->pBuffer);
+	vPortWaitForEnd(s_pVPort);
 }
 
 void gameGsDestroy(void) {
 	viewLoad(0);
 	systemUse();
+
+	entityListDestroy();
+
 	viewDestroy(s_pView);
+
 }
