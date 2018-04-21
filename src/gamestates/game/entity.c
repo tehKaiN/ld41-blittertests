@@ -3,6 +3,14 @@
 
 #define ENTITY_MAX_COUNT 10
 
+#define ENTITY_FRAME_STAND 0
+#define ENTITY_FRAME_WALK1 1
+#define ENTITY_FRAME_WALK2 2
+#define ENTITY_FRAME_WALK3 3
+#define ENTITY_FRAME_WALK4 4
+#define ENTITY_ACTION1 5
+#define ENTITY_ACTION2 6
+
 tEntity s_pEntities[ENTITY_MAX_COUNT] = {{0}};
 
 tBitMap *s_pDirFrames[4];
@@ -31,6 +39,7 @@ UBYTE entityAdd(UWORD uwX, UWORD uwY, UBYTE ubDir) {
 			s_pEntities[ubIdx].uwY = uwY;
 			s_pEntities[ubIdx].ubDir = ubDir;
 			s_pEntities[ubIdx].ubType = ENTITY_TYPE_SKELET;
+			s_pEntities[ubIdx].ubFrame = ENTITY_FRAME_STAND;
 			return ubIdx;
 		}
 	}
@@ -39,6 +48,40 @@ UBYTE entityAdd(UWORD uwX, UWORD uwY, UBYTE ubDir) {
 
 void entityDestroy(UBYTE ubEntityIdx) {
 	s_pEntities[ubEntityIdx].ubType = ENTITY_TYPE_OFF;
+}
+
+void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy) {
+	tEntity *pEntity = &s_pEntities[ubEntityIdx];
+
+	pEntity->uwX += bDx;
+	pEntity->uwY += bDy;
+	if(bDy > 0) {
+		pEntity->ubDir = ENTITY_DIR_DOWN;
+	}
+	else if(bDy < 0) {
+		pEntity->ubDir = ENTITY_DIR_UP;
+	}
+	else {
+		if(bDx > 0) {
+			pEntity->ubDir = ENTITY_DIR_RIGHT;
+		}
+		else if(bDx < 0) {
+			pEntity->ubDir = ENTITY_DIR_LEFT;
+		}
+		else {
+			pEntity->ubFrame = ENTITY_FRAME_STAND;
+			return;
+		}
+	}
+	if(
+		pEntity->ubFrame >= ENTITY_FRAME_WALK1 &&
+		pEntity->ubFrame < ENTITY_FRAME_WALK4
+	) {
+		++pEntity->ubFrame;
+	}
+	else {
+		pEntity->ubFrame = ENTITY_FRAME_WALK1;
+	}
 }
 
 void entityProcessDraw(tBitMap *pBuffer) {
@@ -51,7 +94,7 @@ void entityProcessDraw(tBitMap *pBuffer) {
 
 		// Draw entity on new pos
 		blitCopy(
-			s_pDirFrames[pEntity->ubDir], 0, 0,
+			s_pDirFrames[pEntity->ubDir], 0, s_pEntities[ubIdx].ubFrame * 20,
 			pBuffer, pEntity->uwX, pEntity->uwY,
 			16, 20, MINTERM_COOKIE, 0xFF
 		);

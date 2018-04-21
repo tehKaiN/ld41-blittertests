@@ -36,6 +36,15 @@ void gameGsCreate(void) {
 		TAG_SIMPLEBUFFER_BOUND_HEIGHT, 512,
 	TAG_DONE);
 
+	tBitMap *pTile = bitmapCreateFromFile("data/tile.bm");
+	for(UBYTE x = 0; x < 32; ++x) {
+		blitCopyAligned(pTile, 0, 0, s_pBuffer->pBuffer, x*16, 0, 16 ,16);
+	}
+	for(UBYTE y = 0; y < 32; ++y) {
+		blitCopyAligned(s_pBuffer->pBuffer, 0, 0, s_pBuffer->pBuffer, 0, 16*y, 512, 16);
+	}
+	bitmapDestroy(pTile);
+
 	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
 
 	entityListCreate();
@@ -50,6 +59,20 @@ void gameGsLoop(void) {
 		gameClose();
 		return;
 	}
+	BYTE bDx = 0, bDy = 0;
+	if(keyCheck(KEY_LEFT)) {
+		bDx -= 2;
+	}
+	if(keyCheck(KEY_RIGHT)) {
+		bDx += 2;
+	}
+	if(keyCheck(KEY_UP)) {
+		bDy -= 2;
+	}
+	if(keyCheck(KEY_DOWN)) {
+		bDy += 2;
+	}
+	entityMove(s_ubEntityPlayer, bDx, bDy);
 
 	entityProcessDraw(s_pBuffer->pBuffer);
 	vPortWaitForEnd(s_pVPort);

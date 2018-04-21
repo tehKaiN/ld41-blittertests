@@ -19,6 +19,7 @@ typedef struct _tEntity {
 	UWORD uwY;
 	UBYTE ubDir;
 	UBYTE ubType;
+	UBYTE ubFrame;
 } tEntity;
 
 void entityListCreate(void);
@@ -30,5 +31,7 @@ UBYTE entityAdd(UWORD uwX, UWORD uwY, UBYTE ubDir);
 void entityDestroy(UBYTE ubEntityIdx);
 
 void entityProcessDraw(tBitMap *pBuffer);
+
+void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy);
 
 #endif // _LD41_GAMESTATES_GAME_ENTITY_H
