@@ -108,7 +108,7 @@ void entityProcessDraw(tBitMap *pBuffer) {
 	// Let's imitate new Copper pipeline
 	// Restore BG on old pos
 	UWORD uwWidth = 32;
-	UWORD uwHeight = 20*4;
+	UWORD uwHeight = 20*s_pDirFrames[0]->Depth;
 	UWORD uwBlitWords, uwBltCon0;
 	uwBlitWords = uwWidth >> 4;
 	uwBltCon0 = USEA|USED | MINTERM_A;
@@ -152,15 +152,38 @@ void entityProcessDraw(tBitMap *pBuffer) {
 		}
 	}
 
+	// Draw entity on new pos
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
-			// Draw entity on new pos
-			blitCopyMask(
-				s_pDirFrames[pEntity->ubDir], 0, s_pEntities[ubIdx].ubFrame * 20,
-				pBuffer, pEntity->uwX, pEntity->uwY,
-				16, 20, (UWORD*)s_pDirMasks[pEntity->ubDir]->Planes[0]
-			);
+			UBYTE ubDstOffs = pEntity->uwX & 0xF;
+			UWORD uwBlitWidth = (16+ubDstOffs+15) & 0xFFF0;
+			UWORD uwBlitWords = uwBlitWidth >> 4;
+			wSrcModulo = bitmapGetByteWidth(s_pDirFrames[0]) - (uwBlitWords<<1);
+			UWORD uwLastMask = 0xFFFF << (uwBlitWidth-16);
+			UWORD uwBltCon1 = ubDstOffs << BSHIFTSHIFT;
+			UWORD uwBltCon0 = uwBltCon1 | USEA|USEB|USEC|USED | MINTERM_COOKIE;
+			ULONG ulSrcOffs = s_pDirFrames[pEntity->ubDir]->BytesPerRow * s_pEntities[ubIdx].ubFrame * 20;
+			ULONG ulDstOffs = pBuffer->BytesPerRow * pEntity->uwY + (pEntity->uwX>>3);
+
+			wDstModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
+
+			blitWait();
+			g_pCustom->bltcon0 = uwBltCon0;
+			g_pCustom->bltcon1 = uwBltCon1;
+			g_pCustom->bltalwm = uwLastMask;
+
+			g_pCustom->bltamod = wSrcModulo;
+			g_pCustom->bltbmod = wSrcModulo;
+			g_pCustom->bltcmod = wDstModulo;
+			g_pCustom->bltdmod = wDstModulo;
+
+			g_pCustom->bltapt = (UBYTE*)((ULONG)s_pDirMasks[pEntity->ubDir]->Planes[0] + ulSrcOffs);
+			g_pCustom->bltbpt = (UBYTE*)((ULONG)s_pDirFrames[pEntity->ubDir]->Planes[0] + ulSrcOffs);
+			g_pCustom->bltcpt = (UBYTE*)((ULONG)pBuffer->Planes[0] + ulDstOffs);
+			g_pCustom->bltdpt = (UBYTE*)((ULONG)pBuffer->Planes[0] + ulDstOffs);
+
+			g_pCustom->bltsize = (uwHeight << 6) | uwBlitWords;
 		}
 	}
 
