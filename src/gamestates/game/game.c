@@ -19,7 +19,7 @@ UBYTE s_ubEntityPlayer;
 void gameGsCreate(void) {
 	s_pView = viewCreate(0,
 		TAG_VIEW_COPLIST_MODE, VIEW_COPLIST_MODE_RAW,
-		TAG_VIEW_COPLIST_RAW_COUNT, 50,
+		TAG_VIEW_COPLIST_RAW_COUNT, 250,
 		TAG_VIEW_GLOBAL_CLUT, 1,
 	TAG_DONE);
 
@@ -47,14 +47,19 @@ void gameGsCreate(void) {
 
 	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
 
-	entityListCreate();
+	entityListCreate(s_pView->pCopList);
 	entityAdd(48, 64, ENTITY_DIR_DOWN);
 	entityAdd(80, 64, ENTITY_DIR_DOWN);
 	entityAdd(112, 64, ENTITY_DIR_DOWN);
 	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
 
+	copDumpBfr(s_pView->pCopList->pBackBfr);
+	copDumpBfr(s_pView->pCopList->pFrontBfr);
+
 	viewLoad(s_pView);
 	systemUnuse();
+	g_pCustom->copcon = BV(1);
+	systemSetDma(DMAB_BLITHOG, 1);
 }
 
 void gameGsLoop(void) {
@@ -77,16 +82,22 @@ void gameGsLoop(void) {
 	}
 	entityMove(s_ubEntityPlayer, bDx, bDy);
 
-	entityProcessDraw(s_pBuffer->pBuffer);
+	UWORD uwStop = entityProcessDraw(s_pBuffer->pBuffer);
+	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
+	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
+
+	copSwapBuffers();
 	vPortWaitForEnd(s_pVPort);
 }
 
 void gameGsDestroy(void) {
 	viewLoad(0);
+	systemSetDma(DMAB_BLITHOG, 0);
+	g_pCustom->copcon = 0;
+	blitWait();
 	systemUse();
 
 	entityListDestroy();
 
 	viewDestroy(s_pView);
-
 }

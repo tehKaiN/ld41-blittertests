@@ -3,6 +3,7 @@
 
 #include <ace/types.h>
 #include <ace/utils/bitmap.h>
+#include <ace/managers/copper.h>
 
 #define ENTITY_DIR_UP 0
 #define ENTITY_DIR_DOWN 1
@@ -24,7 +25,7 @@ typedef struct _tEntity {
 	UBYTE ubFrame;
 } tEntity;
 
-void entityListCreate(void);
+void entityListCreate(tCopList *pCopList);
 
 void entityListDestroy(void);
 
@@ -32,7 +33,7 @@ UBYTE entityAdd(UWORD uwX, UWORD uwY, UBYTE ubDir);
 
 void entityDestroy(UBYTE ubEntityIdx);
 
-void entityProcessDraw(tBitMap *pBuffer);
+UWORD entityProcessDraw(tBitMap *pBuffer);
 
 void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy);
 
