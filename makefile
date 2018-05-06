@@ -34,6 +34,15 @@ ACE_INC_DIR = $(ACE_DIR)$(SL)include
 # Compiler stuff
 LD41_CC ?= vc
 
+TARGET_DEFINES =
+TARGET ?= release
+ifeq ($(TARGET), debug)
+	TARGET_DEFINES += -DACE_DEBUG
+	ACE_TARGET = debug
+else
+	ACE_TARGET = release
+endif
+
 INCLUDES = -I$(SRC_DIR) -I$(ACE_DIR)/include
 ifeq ($(LD41_CC), vc)
 	CC_FLAGS = +kick13 -c99 $(INCLUDES) -DAMIGA
@@ -41,11 +50,13 @@ ifeq ($(LD41_CC), vc)
 	AS_FLAGS = +kick13 -c
 	OBJDUMP =
 else ifeq ($(LD41_CC), m68k-amigaos-gcc)
-	CC_FLAGS = -std=gnu11 $(INCLUDES) -DAMIGA -noixemul -Wall -fomit-frame-pointer -O3
+	CC_FLAGS = -std=gnu11 $(INCLUDES) -DAMIGA -noixemul -Wall -fomit-frame-pointer -O0
 	ACE_AS = vasm
 	AS_FLAGS = -quiet -x -m68010 -Faout
 	OBJDUMP = m68k-amigaos-objdump -S -d $@ > $@.dasm
 endif
+
+CC_FLAGS += $(TARGET_DEFINES)
 
 # File list
 LD41_MAIN_FILES = $(wildcard $(SRC_DIR)/*.c)
@@ -63,7 +74,7 @@ ACE_OBJS = $(wildcard $(ACE_DIR)/build/*.o)
 
 #
 ace: $(ACE_OBJS)
-	-make -C $(ACE_DIR) all ACE_CC=$(LD41_CC)
+	-make -C $(ACE_DIR) all ACE_CC=$(LD41_CC) TARGET=$(ACE_TARGET)
 	$(NEWLINE)
 	$(ECHO) Copying ACE objs
 	$(NEWLINE)

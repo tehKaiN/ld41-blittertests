@@ -9,7 +9,7 @@
 tFont *g_pFont;
 tTextBitMap *g_pLineBuffer;
 
-void inputProcess() {
+void inputProcess(void) {
 	joyProcess();
 	keyProcess();
 }

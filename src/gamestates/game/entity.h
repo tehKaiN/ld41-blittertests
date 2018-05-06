@@ -18,8 +18,8 @@
 typedef struct _tEntity {
 	UWORD uwX;
 	UWORD uwY;
-	UWORD uwUndrawX;
-	UWORD uwUndrawY;
+	UWORD pUndrawX[2];
+	UWORD pUndrawY[2];
 	UBYTE ubDir;
 	UBYTE ubType;
 	UBYTE ubFrame;
@@ -33,7 +33,7 @@ UBYTE entityAdd(UWORD uwX, UWORD uwY, UBYTE ubDir);
 
 void entityDestroy(UBYTE ubEntityIdx);
 
-UWORD entityProcessDraw(tBitMap *pBuffer);
+UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx);
 
 void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy);
 

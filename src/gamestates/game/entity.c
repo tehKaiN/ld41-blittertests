@@ -3,7 +3,7 @@
 #include <ace/utils/bitmap.h>
 #include <ace/managers/key.h>
 
-#define ENTITY_MAX_COUNT 10
+#define ENTITY_MAX_COUNT 50
 
 #define ENTITY_FRAME_STAND 0
 #define ENTITY_FRAME_WALK1 1
@@ -20,7 +20,7 @@ tCopList *s_pCopList;
 tBitMap *s_pDirFrames[4];
 tBitMap *s_pDirMasks[4];
 
-tBitMap *s_pBgBuffer;
+tBitMap *s_pBgBuffer[2];
 
 void entityListCreate(tCopList *pCopList) {
 	s_pDirFrames[ENTITY_DIR_UP] = bitmapCreateFromFile("data/skelet/up.bm");
@@ -33,14 +33,14 @@ void entityListCreate(tCopList *pCopList) {
 	s_pDirMasks[ENTITY_DIR_LEFT] = bitmapCreateFromFile("data/skelet/left_mask.bm");
 	s_pDirMasks[ENTITY_DIR_RIGHT] = bitmapCreateFromFile("data/skelet/right_mask.bm");
 
-	s_pBgBuffer = bitmapCreate(
+	s_pBgBuffer[0] = bitmapCreate(
 		bitmapGetByteWidth(s_pDirFrames[0])*8 +16, 20*ENTITY_MAX_COUNT,
 		s_pDirFrames[0]->Depth, BMF_CLEAR | BMF_INTERLEAVED
 	);
-	blitRect(s_pBgBuffer, 0, 0, 32, 20, 1);
-	blitRect(s_pBgBuffer, 0, 20, 32, 20, 2);
-	blitRect(s_pBgBuffer, 0, 40, 32, 20, 3);
-	blitRect(s_pBgBuffer, 0, 60, 32, 20, 4);
+	s_pBgBuffer[1] = bitmapCreate(
+		bitmapGetByteWidth(s_pDirFrames[0])*8 +16, 20*ENTITY_MAX_COUNT,
+		s_pDirFrames[0]->Depth, BMF_CLEAR | BMF_INTERLEAVED
+	);
 
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		s_pEntities[ubIdx].ubType = ENTITY_TYPE_OFF;
@@ -50,7 +50,8 @@ void entityListCreate(tCopList *pCopList) {
 }
 
 void entityListDestroy(void) {
-	bitmapDestroy(s_pBgBuffer);
+	bitmapDestroy(s_pBgBuffer[0]);
+	bitmapDestroy(s_pBgBuffer[1]);
 
 	for(UBYTE i = ENTITY_DIR_UP; i <= ENTITY_DIR_RIGHT; ++i) {
 		bitmapDestroy(s_pDirFrames[i]);
@@ -61,8 +62,10 @@ void entityListDestroy(void) {
 UBYTE entityAdd(UWORD uwX, UWORD uwY, UBYTE ubDir) {
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		if(s_pEntities[ubIdx].ubType == ENTITY_TYPE_OFF) {
-			s_pEntities[ubIdx].uwUndrawX = 0;
-			s_pEntities[ubIdx].uwUndrawY = 0;
+			s_pEntities[ubIdx].pUndrawX[0] = 0;
+			s_pEntities[ubIdx].pUndrawY[0] = 0;
+			s_pEntities[ubIdx].pUndrawX[1] = 0;
+			s_pEntities[ubIdx].pUndrawY[1] = 0;
 			s_pEntities[ubIdx].uwX = uwX;
 			s_pEntities[ubIdx].uwY = uwY;
 			s_pEntities[ubIdx].ubDir = ubDir;
@@ -112,7 +115,7 @@ void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy) {
 	}
 }
 
-UWORD entityProcessDraw(tBitMap *pBuffer) {
+UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx) {
 	tCopperUlong REGPTR pBltPtA = (tCopperUlong REGPTR)&g_pCustom->bltapt;
 	tCopperUlong REGPTR pBltPtB = (tCopperUlong REGPTR)&g_pCustom->bltbpt;
 	tCopperUlong REGPTR pBltPtC = (tCopperUlong REGPTR)&g_pCustom->bltcpt;
@@ -126,7 +129,7 @@ UWORD entityProcessDraw(tBitMap *pBuffer) {
 	UWORD uwBlitWords = uwWidth >> 4;
 	UWORD uwBlitSize = (uwHeight << 6) | uwBlitWords;
 	UWORD uwBltCon0 = USEA|USED | MINTERM_A;
-	WORD wSrcModulo = bitmapGetByteWidth(s_pBgBuffer) - (uwBlitWords<<1);
+	WORD wSrcModulo = bitmapGetByteWidth(s_pBgBuffer[ubBufferIdx]) - (uwBlitWords<<1);
 	WORD wDstModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
 	ULONG ulA, ulB, ulCD;
 
@@ -134,21 +137,24 @@ UWORD entityProcessDraw(tBitMap *pBuffer) {
 	s_pCopCmds[uwCopIdx].sWait.bfBlitterIgnore = 0;
 	s_pCopCmds[uwCopIdx].sWait.bfVE = 0;
 	s_pCopCmds[uwCopIdx++].sWait.bfHE = 0;
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0xFFF);
+	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x111);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcon0, uwBltCon0);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcon1, 0);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltafwm, 0xFFFF);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltalwm, 0xFFFF);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltamod, wSrcModulo);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltdmod, wDstModulo);
-	ulA = (ULONG)(s_pBgBuffer->Planes[0]);
+	ulA = (ULONG)(s_pBgBuffer[ubBufferIdx]->Planes[0]);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwHi, ulA >> 16);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwLo, ulA & 0xFFFF);
 
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
-			ULONG ulDstOffs = pBuffer->BytesPerRow * pEntity->uwUndrawY + (pEntity->uwUndrawX>>3);
+			ULONG ulDstOffs = (
+				pBuffer->BytesPerRow * pEntity->pUndrawY[ubBufferIdx] +
+				(pEntity->pUndrawX[ubBufferIdx]>>3)
+			);
 			ulCD = (ULONG)(pBuffer->Planes[0]) + ulDstOffs;
 			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwHi, ulCD >> 16);
 			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwLo, ulCD & 0xFFFF);
@@ -165,12 +171,12 @@ UWORD entityProcessDraw(tBitMap *pBuffer) {
 	// For each bob: 3 MOVEs and WAIT for blitter
 
 	// Save BG on new pos
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x888);
+	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x222);
 	wSrcModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
-	wDstModulo = bitmapGetByteWidth(s_pBgBuffer) - (uwBlitWords<<1);
+	wDstModulo = bitmapGetByteWidth(s_pBgBuffer[ubBufferIdx]) - (uwBlitWords<<1);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltamod, wSrcModulo);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltdmod, wDstModulo);
-	ulCD = (ULONG)(s_pBgBuffer->Planes[0]);
+	ulCD = (ULONG)(s_pBgBuffer[ubBufferIdx]->Planes[0]);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwHi, ulCD >> 16);
 	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwLo, ulCD & 0xFFFF);
 	for(UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
@@ -192,7 +198,7 @@ UWORD entityProcessDraw(tBitMap *pBuffer) {
 	// For each bob: 3 MOVEs and WAIT for blitter
 
 	// Draw entity on new pos
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x444);
+	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x333);
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
@@ -245,8 +251,8 @@ UWORD entityProcessDraw(tBitMap *pBuffer) {
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
-			pEntity->uwUndrawX = pEntity->uwX;
-			pEntity->uwUndrawY = pEntity->uwY;
+			pEntity->pUndrawX[ubBufferIdx] = pEntity->uwX;
+			pEntity->pUndrawY[ubBufferIdx] = pEntity->uwY;
 		}
 	}
 	// Total copper cost:

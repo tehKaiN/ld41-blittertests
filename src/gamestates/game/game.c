@@ -13,13 +13,14 @@ tVPort *s_pVPort;
 tSimpleBufferManager *s_pBuffer;
 
 UBYTE s_ubEntityPlayer;
+UBYTE s_ubBufferIdx = 0;
 
 #define GAME_BPP 4
 
 void gameGsCreate(void) {
 	s_pView = viewCreate(0,
 		TAG_VIEW_COPLIST_MODE, VIEW_COPLIST_MODE_RAW,
-		TAG_VIEW_COPLIST_RAW_COUNT, 250,
+		TAG_VIEW_COPLIST_RAW_COUNT, 1200,
 		TAG_VIEW_GLOBAL_CLUT, 1,
 	TAG_DONE);
 
@@ -34,32 +35,35 @@ void gameGsCreate(void) {
 		TAG_SIMPLEBUFFER_VPORT, s_pVPort,
 		TAG_SIMPLEBUFFER_BOUND_WIDTH, 512,
 		TAG_SIMPLEBUFFER_BOUND_HEIGHT, 512,
+		TAG_SIMPLEBUFFER_IS_DBLBUF, 1,
 	TAG_DONE);
 
 	tBitMap *pTile = bitmapCreateFromFile("data/tile.bm");
 	for(UBYTE x = 0; x < 32; ++x) {
-		blitCopyAligned(pTile, 0, 0, s_pBuffer->pBuffer, x*16, 0, 16 ,16);
+		blitCopyAligned(pTile, 0, 0, s_pBuffer->pBack, x*16, 0, 16 ,16);
 	}
 	for(UBYTE y = 0; y < 32; ++y) {
-		blitCopyAligned(s_pBuffer->pBuffer, 0, 0, s_pBuffer->pBuffer, 0, 16*y, 512, 16);
+		blitCopyAligned(s_pBuffer->pBack, 0, 0, s_pBuffer->pBack, 0, 16*y, 512, 16);
 	}
+	blitCopyAligned(
+		s_pBuffer->pBack, 0, 0, s_pBuffer->pFront, 0, 0,
+		bitmapGetByteWidth(s_pBuffer->pBack)*8, s_pBuffer->pBack->Rows
+	);
 	bitmapDestroy(pTile);
 
 	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
 
 	entityListCreate(s_pView->pCopList);
-	entityAdd(48, 64, ENTITY_DIR_DOWN);
-	entityAdd(80, 64, ENTITY_DIR_DOWN);
-	entityAdd(112, 64, ENTITY_DIR_DOWN);
+	for(UBYTE i = 0; i < 20; ++i) {
+		entityAdd(48 + 32*(i&7), 64 + 32*(i>>3), ENTITY_DIR_DOWN);
+	}
 	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
-
-	copDumpBfr(s_pView->pCopList->pBackBfr);
-	copDumpBfr(s_pView->pCopList->pFrontBfr);
 
 	viewLoad(s_pView);
 	systemUnuse();
 	g_pCustom->copcon = BV(1);
 	systemSetDma(DMAB_BLITHOG, 1);
+	s_ubBufferIdx = 0;
 }
 
 void gameGsLoop(void) {
@@ -82,12 +86,28 @@ void gameGsLoop(void) {
 	}
 	entityMove(s_ubEntityPlayer, bDx, bDy);
 
-	UWORD uwStop = entityProcessDraw(s_pBuffer->pBuffer);
+	// Prepare copperlist for next back buffer
+	UWORD uwStop = entityProcessDraw(s_pBuffer->pFront, s_ubBufferIdx);
+	s_ubBufferIdx = !s_ubBufferIdx;
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 
-	copSwapBuffers();
+	// View processing here so that old & new camera positions are accessible
+	viewProcessManagers(s_pView);
 	vPortWaitForEnd(s_pVPort);
+	copSwapBuffers();
+
+	// entity manager draws on undisplayed bfr during displayed coplist
+	// simple buffer manager sets bplpt on copper back bfr and swaps back/front
+	// so after copper finishes drawing on back and coplist is finished for next back,
+	// simple buffer sets bplpt and swaps, then copper is swapped
+
+	// camera move
+	// entity -> prepare coplist on back
+	// buffer -> prepare new coplist bplpt on back
+	// as atomic as possible:
+	// buffer -> swap back/front
+	// copper -> swap back/front <- this MUST be before vblank
 }
 
 void gameGsDestroy(void) {
