@@ -116,11 +116,6 @@ void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy) {
 }
 
 UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx) {
-	tCopperUlong REGPTR pBltPtA = (tCopperUlong REGPTR)&g_pCustom->bltapt;
-	tCopperUlong REGPTR pBltPtB = (tCopperUlong REGPTR)&g_pCustom->bltbpt;
-	tCopperUlong REGPTR pBltPtC = (tCopperUlong REGPTR)&g_pCustom->bltcpt;
-	tCopperUlong REGPTR pBltPtD = (tCopperUlong REGPTR)&g_pCustom->bltdpt;
-	tCopCmd *s_pCopCmds = s_pCopList->pBackBfr->pList;
 	UWORD uwCopIdx = 14; // From VPort manager
 	// Let's imitate new Copper pipeline
 	// Restore BG on old pos
@@ -133,20 +128,16 @@ UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx) {
 	WORD wDstModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
 	ULONG ulA, ulB, ulCD;
 
-	copSetWait(&s_pCopCmds[uwCopIdx].sWait, 0, 0);
-	s_pCopCmds[uwCopIdx].sWait.bfBlitterIgnore = 0;
-	s_pCopCmds[uwCopIdx].sWait.bfVE = 0;
-	s_pCopCmds[uwCopIdx++].sWait.bfHE = 0;
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x111);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcon0, uwBltCon0);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcon1, 0);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltafwm, 0xFFFF);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltalwm, 0xFFFF);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltamod, wSrcModulo);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltdmod, wDstModulo);
+	blitWait();
+	g_pCustom->color[0] = 0x111;
+	g_pCustom->bltcon0 = uwBltCon0;
+	g_pCustom->bltcon1 = 0;
+	g_pCustom->bltafwm = 0xFFFF;
+	g_pCustom->bltalwm = 0xFFFF;
+	g_pCustom->bltamod = wSrcModulo;
+	g_pCustom->bltdmod = wDstModulo;
 	ulA = (ULONG)(s_pBgBuffer[ubBufferIdx]->Planes[0]);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwHi, ulA >> 16);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwLo, ulA & 0xFFFF);
+	g_pCustom->bltapt = (APTR)ulA;
 
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
@@ -156,41 +147,28 @@ UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx) {
 				(pEntity->pUndrawX[ubBufferIdx]>>3)
 			);
 			ulCD = (ULONG)(pBuffer->Planes[0]) + ulDstOffs;
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwHi, ulCD >> 16);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwLo, ulCD & 0xFFFF);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltsize, uwBlitSize);
-			copSetWait(&s_pCopCmds[uwCopIdx].sWait, 0, 0);
-			s_pCopCmds[uwCopIdx].sWait.bfHE = 0;
-			s_pCopCmds[uwCopIdx].sWait.bfVE = 0;
-			s_pCopCmds[uwCopIdx++].sWait.bfBlitterIgnore = 0;
+			g_pCustom->bltdpt = (APTR)ulCD;
+			g_pCustom->bltsize = uwBlitSize;
+			blitWait();
 		}
 	}
-	// Copper cost: 9+4n
-	// Initial WAIT @ pos & blitter
-	// 8 MOVES
-	// For each bob: 3 MOVEs and WAIT for blitter
 
 	// Save BG on new pos
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x222);
+	g_pCustom->color[0] = 0x222;
 	wSrcModulo = bitmapGetByteWidth(pBuffer) - (uwBlitWords<<1);
 	wDstModulo = bitmapGetByteWidth(s_pBgBuffer[ubBufferIdx]) - (uwBlitWords<<1);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltamod, wSrcModulo);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltdmod, wDstModulo);
+	g_pCustom->bltamod = wSrcModulo;
+	g_pCustom->bltdmod = wDstModulo;
 	ulCD = (ULONG)(s_pBgBuffer[ubBufferIdx]->Planes[0]);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwHi, ulCD >> 16);
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwLo, ulCD & 0xFFFF);
+	g_pCustom->bltdpt = (APTR)ulCD;
 	for(UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
 			ULONG ulSrcOffs = pBuffer->BytesPerRow * pEntity->uwY + (pEntity->uwX>>3);
 			ULONG ulA = (ULONG)(pBuffer->Planes[0]) + ulSrcOffs;
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwHi, ulA >> 16);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwLo, ulA & 0xFFFF);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltsize, uwBlitSize);
-			copSetWait(&s_pCopCmds[uwCopIdx].sWait, 0, 0);
-			s_pCopCmds[uwCopIdx].sWait.bfHE = 0;
-			s_pCopCmds[uwCopIdx].sWait.bfVE = 0;
-			s_pCopCmds[uwCopIdx++].sWait.bfBlitterIgnore = 0;
+			g_pCustom->bltapt = (APTR)ulA;
+			g_pCustom->bltsize = uwBlitSize;
+			blitWait();
 		}
 	}
 	// Copper cost: 4+4n
@@ -198,7 +176,7 @@ UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx) {
 	// For each bob: 3 MOVEs and WAIT for blitter
 
 	// Draw entity on new pos
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x333);
+	g_pCustom->color[0] = 0x333;
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];
 		if(pEntity->ubType != ENTITY_TYPE_OFF) {
@@ -218,35 +196,27 @@ UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx) {
 			ulB = (ULONG)(s_pDirFrames[pEntity->ubDir]->Planes[0]) + ulSrcOffs;
 			ulCD = (ULONG)(pBuffer->Planes[0]) + ulDstOffs;
 
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcon0, uwBltCon0);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcon1, uwBltCon1);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltalwm, uwLastMask);
+			g_pCustom->bltcon0 = uwBltCon0;
+			g_pCustom->bltcon1 = uwBltCon1;
+			g_pCustom->bltalwm = uwLastMask;
 
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltamod, wSrcModulo);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltbmod, wSrcModulo);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltcmod, wDstModulo);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltdmod, wDstModulo);
+			g_pCustom->bltamod = wSrcModulo;
+			g_pCustom->bltbmod = wSrcModulo;
+			g_pCustom->bltcmod = wDstModulo;
+			g_pCustom->bltdmod = wDstModulo;
 
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwHi, ulA >> 16);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtA->uwLo, ulA & 0xFFFF);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtB->uwHi, ulB >> 16);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtB->uwLo, ulB & 0xFFFF);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtC->uwHi, ulCD >> 16);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtC->uwLo, ulCD & 0xFFFF);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwHi, ulCD >> 16);
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &pBltPtD->uwLo, ulCD & 0xFFFF);
+			g_pCustom->bltapt = (APTR)ulA;
+			g_pCustom->bltbpt = (APTR)ulB;
+			g_pCustom->bltcpt = (APTR)ulCD;
+			g_pCustom->bltdpt = (APTR)ulCD;
+			g_pCustom->bltsize = uwBlitSize;
 
-			copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->bltsize, uwBlitSize);
-
-			copSetWait(&s_pCopCmds[uwCopIdx].sWait, 0, 0);
-			s_pCopCmds[uwCopIdx].sWait.bfHE = 0;
-			s_pCopCmds[uwCopIdx].sWait.bfVE = 0;
-			s_pCopCmds[uwCopIdx++].sWait.bfBlitterIgnore = 0;
+			blitWait();
 		}
 	}
 	// Copper cost: 17n
 	// For each bob: 16 MOVEs and WAIT for blitter
-	copSetMove(&s_pCopCmds[uwCopIdx++].sMove, &g_pCustom->color[0], 0x000);
+	g_pCustom->color[0] = 0x000;
 
 	for (UBYTE ubIdx = 0; ubIdx < ENTITY_MAX_COUNT; ++ubIdx) {
 		tEntity *pEntity = &s_pEntities[ubIdx];

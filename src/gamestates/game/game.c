@@ -54,7 +54,7 @@ void gameGsCreate(void) {
 	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
 
 	entityListCreate(s_pView->pCopList);
-	for(UBYTE i = 0; i < 20; ++i) {
+	for(UBYTE i = 0; i < 34; ++i) {
 		entityAdd(48 + 32*(i&7), 64 + 32*(i>>3), ENTITY_DIR_DOWN);
 	}
 	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
@@ -87,12 +87,11 @@ void gameGsLoop(void) {
 	entityMove(s_ubEntityPlayer, bDx, bDy);
 
 	// Prepare copperlist for next back buffer
-	UWORD uwStop = entityProcessDraw(s_pBuffer->pFront, s_ubBufferIdx);
+	UWORD uwStop = entityProcessDraw(s_pBuffer->pBack, s_ubBufferIdx);
 	s_ubBufferIdx = !s_ubBufferIdx;
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 
-	// View processing here so that old & new camera positions are accessible
 	viewProcessManagers(s_pView);
 	vPortWaitForEnd(s_pVPort);
 	copSwapBuffers();
