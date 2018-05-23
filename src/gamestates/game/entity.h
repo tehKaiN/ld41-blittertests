@@ -1,9 +1,14 @@
-#ifndef _LD41_GAMESTATES_GAME_ENTITY_H
-#define _LD41_GAMESTATES_GAME_ENTITY_H
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#ifndef _LD41_GAMESTATES_GAME_ENTITY_H_
+#define _LD41_GAMESTATES_GAME_ENTITY_H_
 
 #include <ace/types.h>
 #include <ace/utils/bitmap.h>
-#include <ace/managers/copper.h>
+#include <ace/utils/extview.h>
+#include "bob_new.h"
 
 #define ENTITY_DIR_UP 0
 #define ENTITY_DIR_DOWN 1
@@ -16,16 +21,13 @@
 #define ENTITY_IDX_INVALID 255
 
 typedef struct _tEntity {
-	UWORD uwX;
-	UWORD uwY;
-	UWORD pUndrawX[2];
-	UWORD pUndrawY[2];
+	tBobNew sBob;
 	UBYTE ubDir;
 	UBYTE ubType;
 	UBYTE ubFrame;
 } tEntity;
 
-void entityListCreate(tCopList *pCopList);
+void entityListCreate(tView *pView);
 
 void entityListDestroy(void);
 
@@ -37,4 +39,4 @@ UWORD entityProcessDraw(tBitMap *pBuffer, UBYTE ubBufferIdx);
 
 void entityMove(UBYTE ubEntityIdx, BYTE bDx, BYTE bDy);
 
-#endif // _LD41_GAMESTATES_GAME_ENTITY_H
+#endif // _LD41_GAMESTATES_GAME_ENTITY_H_

@@ -50,7 +50,7 @@ ifeq ($(LD41_CC), vc)
 	AS_FLAGS = +kick13 -c
 	OBJDUMP =
 else ifeq ($(LD41_CC), m68k-amigaos-gcc)
-	CC_FLAGS = -std=gnu11 $(INCLUDES) -DAMIGA -noixemul -Wall -fomit-frame-pointer -O0
+	CC_FLAGS = -std=gnu11 $(INCLUDES) -DAMIGA -noixemul -Wall -fomit-frame-pointer -O3
 	ACE_AS = vasm
 	AS_FLAGS = -quiet -x -m68010 -Faout
 	OBJDUMP = m68k-amigaos-objdump -S -d $@ > $@.dasm
@@ -74,7 +74,7 @@ ACE_OBJS = $(wildcard $(ACE_DIR)/build/*.o)
 
 #
 ace: $(ACE_OBJS)
-	-make -C $(ACE_DIR) all ACE_CC=$(LD41_CC) TARGET=$(ACE_TARGET)
+	-$(MAKE) -C $(ACE_DIR) all ACE_CC=$(LD41_CC) TARGET=$(ACE_TARGET)
 	$(NEWLINE)
 	$(ECHO) Copying ACE objs
 	$(NEWLINE)
