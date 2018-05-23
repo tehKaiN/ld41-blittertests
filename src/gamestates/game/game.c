@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include "gamestates/game/game.h"
 #include <ace/managers/game.h>
 #include <ace/managers/key.h>
@@ -16,6 +20,8 @@ UBYTE s_ubEntityPlayer;
 UBYTE s_ubBufferIdx = 0;
 
 #define GAME_BPP 4
+
+UBYTE s_ubEntityCount = 0;
 
 void gameGsCreate(void) {
 	s_pView = viewCreate(0,
@@ -53,10 +59,7 @@ void gameGsCreate(void) {
 
 	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
 
-	entityListCreate(s_pView->pCopList);
-	for(UBYTE i = 0; i < 20; ++i) {
-		entityAdd(48 + 32*(i&7), 64 + 32*(i>>3), ENTITY_DIR_DOWN);
-	}
+	entityListCreate(s_pView);
 	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
 
 	viewLoad(s_pView);
@@ -64,6 +67,7 @@ void gameGsCreate(void) {
 	g_pCustom->copcon = BV(1);
 	systemSetDma(DMAB_BLITHOG, 1);
 	s_ubBufferIdx = 0;
+	s_ubEntityCount = 0;
 }
 
 void gameGsLoop(void) {
@@ -84,15 +88,23 @@ void gameGsLoop(void) {
 	if(keyCheck(KEY_DOWN)) {
 		bDy += 2;
 	}
+
+	if(keyUse(KEY_SPACE)) {
+		entityAdd(
+			48 + 32*(s_ubEntityCount&7), 32 + 32*(s_ubEntityCount>>3),
+			ENTITY_DIR_DOWN
+		);
+		++s_ubEntityCount;
+	}
+
 	entityMove(s_ubEntityPlayer, bDx, bDy);
 
 	// Prepare copperlist for next back buffer
-	UWORD uwStop = entityProcessDraw(s_pBuffer->pFront, s_ubBufferIdx);
+	UWORD uwStop = entityProcessDraw(s_pBuffer->pBack, s_ubBufferIdx);
 	s_ubBufferIdx = !s_ubBufferIdx;
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 
-	// View processing here so that old & new camera positions are accessible
 	viewProcessManagers(s_pView);
 	vPortWaitForEnd(s_pVPort);
 	copSwapBuffers();
