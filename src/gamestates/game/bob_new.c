@@ -17,7 +17,7 @@ typedef struct _tBobQueue {
 	tBitMap *pDst;
 } tBobQueue;
 
-static UBYTE s_ubBufferCurr = 0;
+static UBYTE s_ubBufferCurr;
 static UBYTE s_ubMaxBobCount;
 
 static UBYTE s_isPushingDone;
@@ -105,20 +105,29 @@ UBYTE bobNewProcessNext(void) {
 		tBobQueue *pQueue = &s_pQueues[s_ubBufferCurr];
 		if(!s_ubBobsSaved) {
 			// Prepare for saving
+			// NOTE: bltcon0/1, bltaxwm could be reset between Begin and ProcessNext
+			UWORD uwBltCon0 = USEA|USED | MINTERM_A;
+			g_pCustom->bltcon0 = uwBltCon0;
+			g_pCustom->bltcon1 = 0;
+			g_pCustom->bltafwm = 0xFFFF;
+			g_pCustom->bltalwm = 0xFFFF;
+
 			g_pCustom->bltdmod = 0;
 			ULONG ulCD = (ULONG)(pQueue->pBg->Planes[0]);
 			g_pCustom->bltdpt = (APTR)ulCD;
 		}
 		const tBobNew *pBob = pQueue->pBobs[s_ubBobsSaved];
 		++s_ubBobsSaved;
-		ULONG ulSrcOffs = (
-			pQueue->pDst->BytesPerRow * pBob->sPos.sUwCoord.uwY +
-			pBob->sPos.sUwCoord.uwX/8
-		);
-		ULONG ulA = (ULONG)(pQueue->pDst->Planes[0]) + ulSrcOffs;
-		g_pCustom->bltamod = pBob->_wModuloUndrawSave;
-		g_pCustom->bltapt = (APTR)ulA;
-		g_pCustom->bltsize = pBob->_uwBlitSize;
+		if(pBob->isUndrawRequired) {
+			ULONG ulSrcOffs = (
+				pQueue->pDst->BytesPerRow * pBob->sPos.sUwCoord.uwY +
+				pBob->sPos.sUwCoord.uwX/8
+			);
+			ULONG ulA = (ULONG)(pQueue->pDst->Planes[0]) + ulSrcOffs;
+			g_pCustom->bltamod = pBob->_wModuloUndrawSave;
+			g_pCustom->bltapt = (APTR)ulA;
+			g_pCustom->bltsize = pBob->_uwBlitSize;
+		}
 		return 1;
 	}
 	else {
@@ -190,16 +199,18 @@ void bobNewBegin(void) {
 
 	for(UBYTE i = 0; i < pQueue->ubUndrawCount; ++i) {
 		const tBobNew *pBob = pQueue->pBobs[i];
-		// Undraw next
-		ULONG ulDstOffs = (
-			pQueue->pDst->BytesPerRow * pBob->pOldPositions[s_ubBufferCurr].sUwCoord.uwY +
-			pBob->pOldPositions[s_ubBufferCurr].sUwCoord.uwX/8
-		);
-		ULONG ulCD = (ULONG)(pQueue->pDst->Planes[0]) + ulDstOffs;
-		g_pCustom->bltdmod = pBob->_wModuloUndrawSave;
-		g_pCustom->bltdpt = (APTR)ulCD;
-		g_pCustom->bltsize = pBob->_uwBlitSize;
-		blitWait();
+		if(pBob->isUndrawRequired) {
+			// Undraw next
+			ULONG ulDstOffs = (
+				pQueue->pDst->BytesPerRow * pBob->pOldPositions[s_ubBufferCurr].sUwCoord.uwY +
+				pBob->pOldPositions[s_ubBufferCurr].sUwCoord.uwX/8
+			);
+			ULONG ulCD = (ULONG)(pQueue->pDst->Planes[0]) + ulDstOffs;
+			g_pCustom->bltdmod = pBob->_wModuloUndrawSave;
+			g_pCustom->bltdpt = (APTR)ulCD;
+			g_pCustom->bltsize = pBob->_uwBlitSize;
+			blitWait();
+		}
 	}
 	s_ubBobsSaved = 0;
 	s_ubBobsDrawn = 0;
