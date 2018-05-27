@@ -103,6 +103,12 @@ void bobNewSetBitMapOffset(tBobNew *pBob, UWORD uwOffsetY) {
 UBYTE bobNewProcessNext(void) {
 	if(s_ubBobsSaved < s_ubBobsPushed) {
 		tBobQueue *pQueue = &s_pQueues[s_ubBufferCurr];
+		if(!s_ubBobsSaved) {
+			// Prepare for saving
+			g_pCustom->bltdmod = 0;
+			ULONG ulCD = (ULONG)(pQueue->pBg->Planes[0]);
+			g_pCustom->bltdpt = (APTR)ulCD;
+		}
 		const tBobNew *pBob = pQueue->pBobs[s_ubBobsSaved];
 		++s_ubBobsSaved;
 		ULONG ulSrcOffs = (
@@ -132,7 +138,7 @@ UBYTE bobNewProcessNext(void) {
 			UWORD uwBlitWords = uwBlitWidth >> 4;
 			UWORD uwBlitSize = ((pBob->uwHeight * s_ubBpp) << 6) | uwBlitWords;
 			WORD wSrcModulo = (pBob->uwWidth >> 3) - (uwBlitWords<<1);
-			UWORD uwLastMask = 0xFFFF << (uwBlitWidth-16);
+			UWORD uwLastMask = 0xFFFF << (uwBlitWidth-pBob->uwWidth);
 			UWORD uwBltCon1 = ubDstOffs << BSHIFTSHIFT;
 			UWORD uwBltCon0 = uwBltCon1 | USEA|USEB|USEC|USED | MINTERM_COOKIE;
 			ULONG ulSrcOffs = pBob->uwOffsetY;
@@ -195,14 +201,10 @@ void bobNewBegin(void) {
 		g_pCustom->bltsize = pBob->_uwBlitSize;
 		blitWait();
 	}
-
-	// Prepare for saving
 	s_ubBobsSaved = 0;
 	s_ubBobsDrawn = 0;
 	s_ubBobsPushed = 0;
-	g_pCustom->bltdmod = 0;
-	ULONG ulCD = (ULONG)(pQueue->pBg->Planes[0]);
-	g_pCustom->bltdpt = (APTR)ulCD;
+	s_isPushingDone = 0;
 }
 
 void bobNewPushingDone(void) {
