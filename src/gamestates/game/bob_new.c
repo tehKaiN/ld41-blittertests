@@ -224,9 +224,9 @@ void bobNewPushingDone(void) {
 
 void bobNewEnd(void) {
 	bobNewPushingDone();
-	while(bobNewProcessNext()) {
+	do {
 		blitWait();
-	}
+	} while(bobNewProcessNext());
 	s_pQueues[s_ubBufferCurr].ubUndrawCount = s_ubBobsPushed;
 	s_ubBufferCurr = !s_ubBufferCurr;
 }
