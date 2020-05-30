@@ -13,54 +13,104 @@
 #include "gamestates/game/entity.h"
 
 tView *s_pView;
-tVPort *s_pVPort;
-tSimpleBufferManager *s_pBuffer;
+tVPort *s_pVPortMain, *s_pVPortHud;
+tSimpleBufferManager *s_pBufferMain, *s_pBufferHud;
 
-UBYTE s_ubEntityPlayer;
+UBYTE s_pEntityPlayers[4];
 UBYTE s_ubBufferIdx = 0;
 
 #define GAME_BPP 4
 
 UBYTE s_ubEntityCount = 0;
 
+#define TILE_SIZE 4
+#define TILE_WIDTH 16
+#define MAP_WIDTH 20
+#define MAP_HEIGHT 15
+#define HUD_HEIGHT 16
+
+static UBYTE s_pTiles[MAP_WIDTH][MAP_HEIGHT];
+
+
 void gameGsCreate(void) {
 	s_pView = viewCreate(0,
 		TAG_VIEW_COPLIST_MODE, VIEW_COPLIST_MODE_RAW,
-		TAG_VIEW_COPLIST_RAW_COUNT, 1200,
+		TAG_VIEW_COPLIST_RAW_COUNT, 40,
 		TAG_VIEW_GLOBAL_CLUT, 1,
 	TAG_DONE);
 
-	s_pVPort = vPortCreate(0,
+	s_pVPortHud = vPortCreate(0,
+		TAG_VPORT_BPP, GAME_BPP,
+		TAG_VPORT_VIEW, s_pView,
+		TAG_VPORT_HEIGHT, HUD_HEIGHT,
+	TAG_DONE);
+
+	s_pBufferHud = simpleBufferCreate(0,
+		TAG_SIMPLEBUFFER_BITMAP_FLAGS, BMF_CLEAR | BMF_INTERLEAVED,
+		TAG_SIMPLEBUFFER_COPLIST_OFFSET, 0,
+		TAG_SIMPLEBUFFER_VPORT, s_pVPortHud,
+		TAG_SIMPLEBUFFER_BOUND_HEIGHT, HUD_HEIGHT,
+	TAG_DONE);
+
+	s_pVPortMain = vPortCreate(0,
 		TAG_VPORT_BPP, GAME_BPP,
 		TAG_VPORT_VIEW, s_pView,
 	TAG_DONE);
 
-	s_pBuffer = simpleBufferCreate(0,
+	s_pBufferMain = simpleBufferCreate(0,
 		TAG_SIMPLEBUFFER_BITMAP_FLAGS, BMF_CLEAR | BMF_INTERLEAVED,
-		TAG_SIMPLEBUFFER_COPLIST_OFFSET, 0,
-		TAG_SIMPLEBUFFER_VPORT, s_pVPort,
-		TAG_SIMPLEBUFFER_BOUND_WIDTH, 512,
-		TAG_SIMPLEBUFFER_BOUND_HEIGHT, 512,
+		TAG_SIMPLEBUFFER_COPLIST_OFFSET, 14,
+		TAG_SIMPLEBUFFER_VPORT, s_pVPortMain,
+		TAG_SIMPLEBUFFER_BOUND_WIDTH, MAP_WIDTH * TILE_WIDTH,
+		TAG_SIMPLEBUFFER_BOUND_HEIGHT, MAP_HEIGHT * TILE_WIDTH,
 		TAG_SIMPLEBUFFER_IS_DBLBUF, 1,
 	TAG_DONE);
 
+	copDumpBfr(s_pView->pCopList->pBackBfr);
+
 	tBitMap *pTile = bitmapCreateFromFile("data/tile.bm");
-	for(UBYTE x = 0; x < 32; ++x) {
-		blitCopyAligned(pTile, 0, 0, s_pBuffer->pBack, x*16, 0, 16 ,16);
-	}
-	for(UBYTE y = 0; y < 32; ++y) {
-		blitCopyAligned(s_pBuffer->pBack, 0, 0, s_pBuffer->pBack, 0, 16*y, 512, 16);
+	for(UBYTE y = 0; y < MAP_HEIGHT; ++y) {
+		for(UBYTE x = 0; x < MAP_WIDTH; ++x) {
+			if(
+				x == 0 || x == MAP_WIDTH-1 || y == 0 || y == MAP_HEIGHT-1 || // edge
+				(y == MAP_HEIGHT/2 && (x == MAP_WIDTH/2 || x == MAP_WIDTH/2 -1))
+			) {
+				s_pTiles[x][y] = 0;
+				blitRect(
+					s_pBufferMain->pBack, x * TILE_WIDTH, y * TILE_WIDTH,
+					TILE_WIDTH, TILE_WIDTH, 0
+				);
+			}
+			else {
+				s_pTiles[x][y] = 1;
+				blitCopyAligned(
+					pTile, 0, 0, s_pBufferMain->pBack,
+					x * TILE_WIDTH, y * TILE_WIDTH, TILE_WIDTH, TILE_WIDTH
+				);
+			}
+		}
 	}
 	blitCopyAligned(
-		s_pBuffer->pBack, 0, 0, s_pBuffer->pFront, 0, 0,
-		bitmapGetByteWidth(s_pBuffer->pBack)*8, s_pBuffer->pBack->Rows
+		s_pBufferMain->pBack, 0, 0, s_pBufferMain->pFront, 0, 0,
+		bitmapGetByteWidth(s_pBufferMain->pBack)*8, s_pBufferMain->pBack->Rows
 	);
 	bitmapDestroy(pTile);
 
-	paletteLoad("data/amidb16.plt", s_pVPort->pPalette, 16);
+	paletteLoad("data/amidb16.plt", s_pVPortHud->pPalette, 16);
 
 	entityListCreate(s_pView);
-	s_ubEntityPlayer = entityAdd(32, 32, ENTITY_DIR_DOWN);
+	tUwCoordYX pSpawns[4] = {
+		{.sUwCoord = {16, 16}},
+		{.sUwCoord = {64, 16}},
+		{.sUwCoord = {16, 48}},
+		{.sUwCoord = {64, 48}}
+	};
+
+	for(UBYTE i = 0; i < 4; ++i) {
+		s_pEntityPlayers[i] = entityAdd(
+			pSpawns[i].sUwCoord.uwX, pSpawns[i].sUwCoord.uwY, ENTITY_DIR_DOWN
+		);
+	}
 
 	viewLoad(s_pView);
 	systemUnuse();
@@ -97,29 +147,18 @@ void gameGsLoop(void) {
 		++s_ubEntityCount;
 	}
 
-	entityMove(s_ubEntityPlayer, bDx, bDy);
+	entityMove(s_pEntityPlayers[0], bDx, bDy);
 
 	// Prepare copperlist for next back buffer
-	UWORD uwStop = entityProcessDraw(s_pBuffer->pBack, s_ubBufferIdx);
+	entityProcessDraw(s_pBufferMain->pBack, s_ubBufferIdx);
 	s_ubBufferIdx = !s_ubBufferIdx;
+	UWORD uwStop = 28;
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 	copSetWait(&s_pView->pCopList->pBackBfr->pList[uwStop++].sWait, 0xFF, 0xFF);
 
 	viewProcessManagers(s_pView);
-	vPortWaitForEnd(s_pVPort);
+	vPortWaitForEnd(s_pVPortMain);
 	copSwapBuffers();
-
-	// entity manager draws on undisplayed bfr during displayed coplist
-	// simple buffer manager sets bplpt on copper back bfr and swaps back/front
-	// so after copper finishes drawing on back and coplist is finished for next back,
-	// simple buffer sets bplpt and swaps, then copper is swapped
-
-	// camera move
-	// entity -> prepare coplist on back
-	// buffer -> prepare new coplist bplpt on back
-	// as atomic as possible:
-	// buffer -> swap back/front
-	// copper -> swap back/front <- this MUST be before vblank
 }
 
 void gameGsDestroy(void) {

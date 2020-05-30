@@ -20,8 +20,6 @@
 
 tEntity s_pEntities[ENTITY_MAX_COUNT] = {{0}};
 
-tCopList *s_pCopList;
-
 tBitMap *s_pDirFrames[4];
 tBitMap *s_pDirMasks[4];
 
@@ -43,15 +41,13 @@ void entityListCreate(tView *pView) {
 	}
 
 	tSimpleBufferManager *pMng = (tSimpleBufferManager*)vPortGetManager(
-		pView->pFirstVPort, VPM_SCROLL
+		pView->pFirstVPort->pNext, VPM_SCROLL
 	);
 
 	bobNewManagerCreate(
 		ENTITY_MAX_COUNT, 2*ENTITY_MAX_COUNT*20,
 		pMng->pFront, pMng->pBack
 	);
-
-	s_pCopList = pView->pCopList;
 }
 
 void entityListDestroy(void) {
